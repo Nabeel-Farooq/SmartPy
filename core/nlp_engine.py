@@ -1,27 +1,86 @@
-def parse_intent(user_input):
-    """Classifies the user's text into an actionable intent."""
-    text = user_input.lower()
-    
-    if any(word in text for word in ["weather", "temperature", "forecast", "hot", "cold"]):
-        return "weather"
-    elif any(word in text for word in ["remind", "task", "todo", "to-do", "add to list"]):
-        return "add_task"
-    elif any(word in text for word in ["show tasks", "list tasks", "my list"]):
-        return "view_tasks"
-    elif any(word in text for word in ["hello", "hi", "hey", "greetings"]):
-        return "greeting"
-    elif any(word in text for word in ["exit", "quit", "bye", "goodbye"]):
-        return "exit"
-    else:
+from typing import Optional
+import re
+
+# Intent keyword mapping
+INTENT_KEYWORDS = {
+    "weather": {
+        "weather",
+        "temperature",
+        "forecast",
+        "hot",
+        "cold",
+        "rain",
+        "sunny",
+        "climate"
+    },
+    "add_task": {
+        "remind",
+        "task",
+        "todo",
+        "to-do",
+        "add to list",
+        "remember this"
+    },
+    "view_tasks": {
+        "show tasks",
+        "list tasks",
+        "my list",
+        "view tasks",
+        "tasks"
+    },
+    "greeting": {
+        "hello",
+        "hi",
+        "hey",
+        "greetings"
+    },
+    "exit": {
+        "exit",
+        "quit",
+        "bye",
+        "goodbye",
+        "stop"
+    }
+}
+
+
+def parse_intent(user_input: str) -> str:
+    """
+    Classify user input into a supported intent.
+    """
+
+    if not user_input or not user_input.strip():
         return "unknown"
 
-def extract_city(user_input):
-    """A simple extractor to find the city name after the word 'in'."""
-    words = user_input.lower().split()
-    if "in" in words:
-        try:
-            city_index = words.index("in") + 1
-            return " ".join(words[city_index:]).title()
-        except IndexError:
-            return None
-    return None
+    text = user_input.lower().strip()
+
+    for intent, keywords in INTENT_KEYWORDS.items():
+        if any(keyword in text for keyword in keywords):
+            return intent
+
+    return "unknown"
+
+
+def extract_city(user_input: str) -> Optional[str]:
+    """
+    Extract a city name from phrases like:
+    - weather in Karachi
+    - forecast in New York
+    - temperature in London
+    """
+
+    if not user_input:
+        return None
+
+    # Regex looks for text after "in"
+    match = re.search(r"\bin\s+([a-zA-Z\s]+)", user_input, re.IGNORECASE)
+
+    if not match:
+        return None
+
+    city = match.group(1).strip()
+
+    # Remove trailing punctuation
+    city = re.sub(r"[^\w\s]", "", city)
+
+    return city.title() if city else None
