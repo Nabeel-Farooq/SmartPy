@@ -1,4 +1,6 @@
 import re
+from typing import Final
+
 from dotenv import load_dotenv
 
 from core.context_manager import ContextManager
@@ -14,26 +16,66 @@ load_dotenv()
 # Initialize chatbot memory
 memory = ContextManager()
 
+# Reusable responses
+WELCOME_MESSAGE: Final[str] = (
+    "Hello! I am your AI personal assistant."
+)
+
+UNKNOWN_COMMAND_MESSAGE: Final[str] = (
+    "I'm not sure how to help with that yet.\n"
+    "Try asking about:\n"
+    "• Weather\n"
+    "• Tasks\n"
+    "• Reminders"
+)
+
+# Trigger phrases used for task cleanup
+TASK_PATTERNS: Final[list[str]] = [
+    r"add to list",
+    r"remind me to",
+    r"add task",
+    r"todo",
+    r"to-do",
+]
+
 
 def clean_task_input(user_input: str) -> str:
     """
-    Remove trigger phrases to extract the actual task text.
+    Extract clean task text from user input.
     """
 
-    patterns = [
-        r"add to list",
-        r"remind me to",
-        r"add task",
-        r"todo",
-        r"to-do"
-    ]
+    cleaned = user_input.strip()
 
-    cleaned = user_input.lower()
-
-    for pattern in patterns:
+    for pattern in TASK_PATTERNS:
         cleaned = re.sub(pattern, "", cleaned, flags=re.IGNORECASE)
 
-    return cleaned.strip()
+    return cleaned.strip(" .,!?")
+
+
+def handle_weather(user_input: str) -> str:
+    """
+    Handle weather-related queries.
+    """
+
+    city = extract_city(user_input)
+
+    if not city:
+        return "Please tell me which city you want the weather for."
+
+    return get_weather(city)
+
+
+def handle_add_task(user_input: str) -> str:
+    """
+    Handle task creation requests.
+    """
+
+    task = clean_task_input(user_input)
+
+    if not task:
+        return "What would you like me to add to your list?"
+
+    return add_task(task)
 
 
 def handle_query(user_input: str) -> str:
@@ -41,46 +83,41 @@ def handle_query(user_input: str) -> str:
     Process user input and return chatbot response.
     """
 
-    intent = parse_intent(user_input)
-
-    # Store interaction context
-    memory.update_context(intent, user_input)
-
     try:
-        match intent:
+        intent = parse_intent(user_input)
 
-            case "greeting":
-                return "Hello! How can I help you today?"
+        # Store interaction context
+        memory.update_context(intent, user_input)
 
-            case "weather":
-                city = extract_city(user_input)
-                return get_weather(city)
+        handlers = {
+            "greeting": lambda: "Hello! How can I help you today?",
+            "weather": lambda: handle_weather(user_input),
+            "add_task": lambda: handle_add_task(user_input),
+            "view_tasks": view_tasks,
+            "exit": lambda: "Shutting down securely. Goodbye!",
+        }
 
-            case "add_task":
-                task = clean_task_input(user_input)
+        handler = handlers.get(intent)
 
-                if not task:
-                    return "What would you like me to add to your list?"
+        if handler:
+            return handler()
 
-                return add_task(task)
-
-            case "view_tasks":
-                return view_tasks()
-
-            case "exit":
-                return "Shutting down securely. Goodbye!"
-
-            case _:
-                return (
-                    "I'm not sure how to help with that yet.\n"
-                    "Try asking about:\n"
-                    "• Weather\n"
-                    "• Tasks\n"
-                    "• Reminders"
-                )
+        return UNKNOWN_COMMAND_MESSAGE
 
     except Exception as error:
         return f"An unexpected error occurred: {error}"
+
+
+def print_startup_banner() -> None:
+    """
+    Display startup information.
+    """
+
+    print("System: Initializing SmartPy Chatbot...")
+    print("System: NLP Engine online.")
+    print("System: Secure logging active.")
+    print("-" * 50)
+    print(f"SmartPy: {WELCOME_MESSAGE}")
 
 
 def main() -> None:
@@ -88,12 +125,7 @@ def main() -> None:
     Main chatbot runtime loop.
     """
 
-    print("System: Initializing SmartPy Chatbot...")
-    print("System: NLP Engine online.")
-    print("System: Secure logging active.")
-    print("-" * 50)
-
-    print("SmartPy: Hello! I am your AI personal assistant.")
+    print_startup_banner()
 
     while True:
 
